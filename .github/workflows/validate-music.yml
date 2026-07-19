@@ -39,8 +39,8 @@ jobs:
       - name: Security Check (PR Files Filter)
         if: github.event_name == 'pull_request_target'
         run: |
-          mapfile -d '' CHANGED_FILES < <(git diff -z --name-only main pr-branch)
-          git diff --name-only main pr-branch > /tmp/changed-files.txt
+          mapfile -d '' CHANGED_FILES < <(git diff -z --name-only main...pr-branch)
+          git diff --name-only main...pr-branch > /tmp/changed-files.txt
           for file in "${CHANGED_FILES[@]}"; do
             if [[ -n "$file" && ! "$file" =~ ^music\.json$ && ! "$file" =~ ^Music/ ]]; then
               echo "Security Error: PR modifies protected system files ($file). Manual review is required."
@@ -58,24 +58,10 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Auto-Sync and Fix JSON
+      - name: Auto-Fix JSON
         if: github.event_name == 'pull_request_target'
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          
-          if ! git merge origin/main --no-edit; then
-            echo "Merge conflict detected! Resolving automatically using auto-fixer..."
-          fi
-          
           node /tmp/trusted-scripts/fix_music.js
-          
-          if ! git diff --quiet music.json || ! git diff --cached --quiet; then
-            git add music.json
-            git commit -m "Auto-sync with main and fix music.json formatting" || true
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git pr-branch:${{ github.event.pull_request.head.ref }} || echo "Could not push to PR branch, continuing with local fix"
-          fi
         continue-on-error: true
 
       - name: Run Validation Script
